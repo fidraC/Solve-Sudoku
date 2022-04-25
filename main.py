@@ -2,6 +2,8 @@ import sys
 import numpy as np
 from hashlib import md5
 from copy import deepcopy
+from time import perf_counter
+from PIL import Image, ImageDraw, ImageFont
 
 class Node():
     def __init__(self, state, parent, action):
@@ -145,11 +147,9 @@ class Sudoku():
                     # Check rows
                     if action in board[row, :]:
                         possible = False
-                        errors += 1
                     # Check column
                     if action in board[:, col]:
                         possible = False
-                        errors += 1
                     # If not in quadrant
                     startRow = row - (row%3)
                     startCol = col - (col%3)
@@ -159,10 +159,25 @@ class Sudoku():
                                 possible = False
                                 errors += 1
                     board[row][col] = action
-                else:
+                if possible:
                     pass
+                else:
+                    return possible
         return possible
 
+    # Creating an image
+    def generate_image(self, grid):
+        grid = np.array(grid)
+        text = ""
+        for row in range(self.height):
+            for col in range(self.width):
+                text = text + grid[row][col] + "    "
+            text = text + "\n"
+        img = Image.new('RGB', (500,500), (250,250,250))
+        draw = ImageDraw.Draw(img)
+        font = ImageFont.truetype("OpenSans-Regular.ttf", 30)
+        draw.text((0, 0),str(text),(0,0,0),font=font)
+        img.save('output.jpg')
     # Solving the puzzle
     def solve(self):
         # Keep track of number of explored states
@@ -176,7 +191,6 @@ class Sudoku():
             frontier = QueueFrontier()
         else:
             exit()
-
         frontier.add(Node(state = self.board, parent = None, action = None))
 
         # Keep track of explored Nodes
@@ -185,7 +199,7 @@ class Sudoku():
         # While loop until solution is found
         while True:
             # Progress report
-            if (self.num_explored%100) == 0:
+            if (self.num_explored%1000) == 0:
                 print("Number explored: " + str(self.num_explored))
             # Exception if no solutions
             if frontier.empty():
@@ -209,7 +223,7 @@ class Sudoku():
                 if self.validate(grid):
                     print("Solved: ")
                     self.print(grid)
-                    return
+                    return grid
             else:
                 # Add to explored
                 self.num_explored += 1
@@ -220,24 +234,24 @@ class Sudoku():
                 row, col = action[1][0], action[1][1]
                 num = action[0]
                 new_state[row][col] = num
-                if self.validate(new_state):
-                    new_node = Node(state = deepcopy(new_state), parent = node.state, action = None)
-                    frontier.add(new_node)
-                    self.explored.append(self.getMD5(str(new_state)))
-                else:
-                    print("Invalid")
+                new_node = Node(state = deepcopy(new_state), parent = node.state, action = None)
+                frontier.add(new_node)
+                self.explored.append(self.getMD5(str(new_state)))
         else:
             print("Already explored")
             print(self.getMD5(str(grid)))
             print(self.explored)
-
 # Main
 #Check if arguments are met
 if len(sys.argv) != 2:
     sys.exit("Usage: python3 main.py sudoku.txt")
 
 # Run game
+tic = perf_counter()
 filename = sys.argv[1]
 game = Sudoku(filename)
-game.solve()
+grid = game.solve()
 print("Iterations used:" + str(game.num_explored))
+toc = perf_counter()
+print("Time taken: " + str(toc - tic))
+game.generate_image(grid)
